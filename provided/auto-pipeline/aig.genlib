@@ -1,0 +1,58 @@
+GATE NAND2 4.0 y=!(a*b);
+        PIN a NONINV 1.6 999 8.4131 5.3045 8.4131 5.3045
+        PIN b NONINV 1.5 999 9.9250 4.7609 9.9250 4.7609
+# cw_nand3_e_sn02c has tib NAND, avg. intrinsic delay = 12.3, avg. logical effort = 3.0, @116ebdf0
+GATE NAND3 5.0 y=!(a*b*c);
+        PIN a NONINV 1.4 999 10.8981 6.8534 10.8981 6.8534
+        PIN b NONINV 1.4 999 12.7349 6.4928 12.7349 6.4928
+        PIN c NONINV 1.4 999 13.4331 6.0401 13.4331 6.0401
+# cw_nand4_e_sn02c has tib NAND, avg. intrinsic delay = 13.9, avg. logical effort = 3.2, @116ecd70
+GATE NAND4 6.0 y=!(a*b*c*d);
+        PIN a NONINV 1.4 999 11.3666 7.4507 11.3666 7.4507
+        PIN b NONINV 1.4 999 13.6387 7.2896 13.6387 7.2896
+        PIN c NONINV 1.4 999 14.9246 6.9246 14.9246 6.9246
+        PIN d NONINV 1.3 999 15.7849 6.7016 15.7849 6.7016
+# cw_nor2_e_sn04c has tib NOR, avg. intrinsic delay = 10.1, avg. logical effort = 2.6, @116edb00
+GATE NOR2 4.0 y=!(a+b);
+        PIN a NONINV 1.6 999 9.3178 4.7169 9.3178 4.7169
+        PIN b NONINV 1.5 999 11.0082 4.3895 11.0082 4.3895
+# cw_nor3_e_sn02c has tib NOR, avg. intrinsic delay = 13.3, avg. logical effort = 3.1, @116eed68
+GATE NOR3 5.0 y=!(a+b+c);
+        PIN a NONINV 1.4 999 11.6168 6.1645 11.6168 6.1645
+        PIN b NONINV 1.3 999 13.7015 5.9213 13.7015 5.9213
+        PIN c NONINV 1.4 999 14.6571 5.4632 14.6571 5.4632
+GATE NOT 2.0 y=!(a);
+        PIN a NONINV 1.8 999 7.3848 3.4021 7.3848 3.4021
+GATE IDENT 7.0 y=(a);
+        PIN a NONINV 1.8 999 7.3848 3.4021 7.3848 3.4021
+# cw_xor2_e_ss06c has tib XOR, avg. intrinsic delay = 16.1, avg. logical effort = 3.5, @116f3328
+GATE XOR2 7.0 y=(a^b);
+        PIN a NONINV 2.8 999 15.5879 4.1620 15.5879 4.1620
+        PIN b NONINV 1.5 999 16.7672 4.3227 16.7672 4.3227
+GATE XNOR2 7.0 y=!(a^b);
+        PIN a NONINV 2.3 999 16.4994 4.9763 16.4994 4.9763
+        PIN b NONINV 1.5 999 17.8247 4.3317 17.8247 4.3317
+# cw_aoi21_e_sn06c has tib AOI, avg. intrinsic delay = 12.0, avg. logical effort = 2.8, @116e7450
+GATE AOI21 6.0 y=!(a1*a2+b);
+        PIN a1 NONINV 1.9 999 10.3461 4.9068 10.3461 4.9068
+        PIN a2 NONINV 1.8 999 11.8953 4.4707 11.8953 4.4707
+        PIN b NONINV 1.7 999 13.7159 3.8483 13.7159 3.8483
+# cw_aoi22_e_sn06c has tib AOI, avg. intrinsic delay = 15.1, avg. logical effort = 2.9, @116e86b8
+GATE AOI22 7.0 y=!(a1*a2+b1*b2);
+        PIN a1 NONINV 1.9 999 11.5771 4.8408 11.5771 4.8408
+        PIN a2 NONINV 1.8 999 12.8801 4.4325 12.8801 4.4325
+        PIN b1 NONINV 1.8 999 17.6262 4.2412 17.6262 4.2412
+        PIN b2 NONINV 1.7 999 18.3691 3.9328 18.3691 3.9328
+GATE OAI21 6.0 y=!((a1+a2)*b);
+        PIN a1 NONINV 1.9 999 10.2768 4.9050 10.2768 4.9050
+        PIN a2 NONINV 1.8 999 12.0592 4.8018 12.0592 4.8018
+        PIN b NONINV 1.7 999 12.4830 4.2115 12.4830 4.2115
+GATE OAI22 7.0 y=!((a1+a2)*(b1+b2));
+        PIN a1 NONINV 1.9 999 11.4812 4.7837 11.4812 4.7837
+        PIN a2 NONINV 1.8 999 13.0414 4.5655 12.0414 4.5655
+        PIN b1 NONINV 1.8 999 14.9013 4.1851 14.9013 4.1851
+        PIN b2 NONINV 1.7 999 16.0591 4.0650 16.0591 4.0650
+GATE zero       0       O=CONST0;
+GATE one        0       O=CONST1;
+
+
