@@ -47,7 +47,7 @@ def parse_verlg(path):
     curr = ""
     for i, line in enumerate(content):
         pattern = "[" + ";()," + "]"
-        line = re.sub(pattern, "", line)
+        line = re.sub(pattern, "", line).strip()
 
         if line.startswith("module"):
             m_name = line.split()[1]
@@ -88,30 +88,34 @@ def parse_verlg(path):
                     curr = ""
                 wires.append(line.split())
     
-    return inputs, outputs, wires, assigns, m_name
+    return inputs[0], outputs[0], wires[0], assigns[0], m_name
 
 
 def generate_forward(inputs, outputs, wires, assigns, m_name):
     registers = ["\\" + m_name + "|s_" + inp for inp in inputs]
 
     # create always block string
-    always_str = "always @ (posedge clock) begin\n"
+    always_str = "\talways @ (posedge clock) begin\n"
     
     reg_o_wires = []
     for i in range(len(inputs)):
-        reg_o_wires.append("new_w" + i)
+        reg_o_wires.append("new_w" + str(i))
 
     # make new assigns for the new wires and inputs
+#       assign n21 = a0;
+#   assign n24 = a1;
+#   assign n27 = b0;
+#   assign n30 = b1;
 
     for i, reg in enumerate(registers):
-        always_str = always_str + reg + "<=" + reg_o_wires[i] + ";\n"
+        always_str = always_str + "\t\t" + reg + " <= " + reg_o_wires[i] + ";\n"
 
     # Everywhere we see an input[i] in an assign statement, we replace
     # the input[i] with reg_o_wires[i]??
 
 
 
-    always_str = always_str + "end\nendmodule\n"
+    always_str = always_str + "\tend\nendmodule\n"
 
     big_string_lol = "BEEF"
     return big_string_lol
@@ -140,6 +144,10 @@ for a in range(len(args)):
 path = str(load_file(vfile))
 
 inputs, outputs, wires, assigns, m_name = parse_verlg(path)
+print(inputs)
+print(outputs)
+print(wires)
+print(assigns)
 
 forward_v = generate_forward(inputs, outputs, wires, assigns, m_name)
 
