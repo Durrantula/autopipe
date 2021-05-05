@@ -32,9 +32,46 @@ def load_file(f_name):
     return p
 
 
-def after_key(line, lst):
+def after_key(line, lst, rm_first=1):
     sub_str = line.split()
-    lst.append(sub_str[1:])
+    int_names = []
+    for i, s in enumerate(sub_str):
+        if s.isdigit():
+            sub_str[i] = "_" + s
+    if rm_first:
+        lst.append(sub_str[1:])
+    else:
+        lst.append(sub_str)
+    
+def assign_key(line, res, op1, op2, gate):
+    sub_str = line.split()[1:] # remove 'assign'
+    res_  = sub_str[0]
+    op1_ = sub_str[2]
+    gate.append(sub_str[3])
+    op2_ = sub_str[4]
+
+    if op1_.startswith("~"):
+        if op1_[1:].isdigit():
+            op1_ = op1_[0] + "_" + op1_[1:]
+    elif op1_.isdigit():
+        op1_ = "_" + op1_
+
+    if op2_.startswith("~"):
+        if op2_[1:].isdigit():
+            op2_ = op2_[0] + "_" + op2_[1:]
+    elif op2_.isdigit():
+        op2_ = "_" + op2_
+
+    if res_.isdigit():
+        res_ = "_" + res_
+
+    res.append(res_)
+    op1.append(op1_)
+    op2.append(op2_)
+        
+def init_assigns(assigns, res, op1, op2, gate):
+    for i in range(len(res)):
+        assigns.append("assign " + res[i] + " = " + op1[i] + " " + gate[i] + " " + op2[i])
 
 def parse_verlg(path):
     with open(path) as f:
@@ -46,9 +83,13 @@ def parse_verlg(path):
     outputs = []
     wires = []
     assigns = []
+    res = []
+    op1 = []
+    op2 = []
+    gate = []
     curr = ""
     for i, line in enumerate(content):
-        pattern = "[" + ";()," + "]"
+        pattern = "[" + "\\\\;()," + "]"
         line = re.sub(pattern, "", line).strip()
 
         if line.startswith("module"):
@@ -68,7 +109,8 @@ def parse_verlg(path):
             curr = "wire"
 
         elif line.startswith("assign"):
-            assigns.append(line)    # maybe split
+            assign_key(line, res, op1, op2, gate)
+            # assigns.append(line)    # maybe split
             curr = ""               # assign new_n8_ = a0 & b0
 
         elif line.startswith("endmodule"):
@@ -78,86 +120,106 @@ def parse_verlg(path):
             if curr == "input":
                 if i != len(content) and content[i+1].startswith(key_names):
                     curr = ""
-                inputs.append(line.split())
+                after_key(line, inputs, rm_first=0)
 
             elif curr == "output":
                 if i != len(content) and content[i+1].startswith(key_names):
                     curr = ""
-                outputs.append(line.split())
+                after_key(line, outputs, rm_first=0)
 
             elif curr == "wire":
                 if i != len(content) and content[i+1].startswith(key_names):
                     curr = ""
-                wires.append(line.split())
+                after_key(line, wires, rm_first=0)
     
-    return inputs[0], outputs[0], wires[0], assigns, m_name
+    init_assigns(assigns, res, op1, op2, gate)
+    return inputs, outputs, wires, assigns, m_name
 
 def gen_module(inputs, outputs, m_name):
     
     mod = "module " + m_name + " ( clock,\n\t  "
 
-    for inp in inputs:
-        mod = mod + inp + ", "
+    for line in inputs:
+        for inp in line:
+            mod = mod + inp + ", "
+        mod = mod + "\n\t  "
 
-    mod = mod + "\n\t  "
-    for out in outputs:
-        mod = mod + out + ", "
-
-    mod = mod[:-2] + ");\n"
+    for line in outputs:
+        for out in line:
+            mod = mod + out + ", "
+        mod = mod + "\n\t  "
+    mod = mod[:-6] + ");\n"
 
     return mod
 
 def gen_inputs(inputs):
     in_str = "\tinput clock; \n\tinput "
-    for inp in inputs:
-        in_str = in_str + inp + ", "
+    for line in inputs:
+        for inp in line:
+            in_str = in_str + inp + ", "
+        in_str = in_str + "\n\t"
 
-    return in_str[:-2] + ";\n"
+    return in_str[:-4] + ";\n"
 
 def gen_outputs(outputs):
     out_str = "\toutput "
-    for out in outputs:
-        out_str = out_str + out + ", "
+    for line in outputs:
+        for out in line:
+            out_str = out_str + out + ", "
+        out_str = out_str + "\n\t"
 
-    return out_str[:-2] + ";\n"
+    return out_str[:-4] + ";\n"
 
 def gen_reg(registers):
     reg_str = "\treg "
-    for reg in registers:
-        reg_str = reg_str + reg + ", "
+    for line in registers:
+        for reg in line:
+            reg_str = reg_str + reg + ", "
+        reg_str = reg_str + "\n\t"
 
-    return reg_str[:-2] + ";\n"
+    return reg_str[:-4] + ";\n"
 
 def gen_wires(wires, new_wires):
     wire1 = "\twire "
-    for wire in wires:
-        wire1 = wire1 + wire + ", "
-
-    wire1 = wire1[:-2] + ";\n"
+    for line in wires:
+        for wire in line:
+            wire1 = wire1 + wire + ", "
+        wire1 = wire1 + "\n\t"
+    wire1 = wire1[:-4] + ";\n"
 
     wire2 = "\twire "
-    for wire in new_wires:
-        wire2 = wire2 + wire + ", "
+    for line in new_wires:
+        for wire in line:
+            wire2 = wire2 + wire + ", "
+        wire2 = wire2 + "\n\t"
 
-    wire2 = wire2[:-2] + ";\n"
+    wire2 = wire2[:-4] + ";\n"
 
     return wire1 + wire2
 
-def gen_assigns(ports, wires, assigns, regs, stage):
+def gen_assigns(portnd, wires, assigns, regs, stage):
     ret = "\t "
     for j in range(len(assigns)):
         # assign new_n8_ = a0 & b0;
         # assign new_n13_ = ~new_n11_ & ~new_n12_;
         # 
         counter = 0
-        for i in range(len(ports)):
-            if counter == stage:
-                break
-            counter = counter + 1
-            idx = assigns[j].find(ports[i]) # idx is left most index
-            if idx != -1:
-                num = len(ports[i])
-                assigns[j] = assigns[j][:idx] + regs[i] + assigns[j][idx+num:]
+        for k, ports in enumerate(portnd):
+            for i in range(len(ports)):
+                if counter == stage:
+                    break
+                counter = counter + 1
+                idx = -1
+                sub_str = assigns[j].split()
+                # temporarily remove negations
+                sub_str = [s.replace("~", "") for s in sub_str]
+
+                if ports[i] in sub_str:
+                    idx = assigns[j].rfind(ports[i]) # idx is left most index
+
+                if idx != -1:
+                    num = len(ports[i])
+                    assigns[j] = assigns[j][:idx] + regs[k][i] + assigns[j][idx+num:]
 
         assigns[j] = "\t" + assigns[j] + ";\n"
 
@@ -168,13 +230,18 @@ def generate_forward(inputs, outputs, wires, assigns, m_name, stage):
     out_str = gen_outputs(outputs)
 
     registers = []
+    regline = []
     counter = 0
-    for inp in inputs:
+    for line in inputs:
+        regline.clear()
         if counter == stage:
             break
-        counter = counter + 1
-        registers.append("__" + m_name + "_s_" + inp.replace("\\", "_"))
-    # registers = ["__" + m_name + "_s_" + inp for inp in inputs]
+        for inp in line:
+            if counter == stage:
+                break
+            counter = counter + 1
+            regline.append("__" + m_name + "_s_" + inp.replace("\\", "_"))
+        registers.append(regline.copy())
 
     reg_str = gen_reg(registers)
 
@@ -184,8 +251,12 @@ def generate_forward(inputs, outputs, wires, assigns, m_name, stage):
 
     # assign these to inputs, and assign registers to these wires
     reg_i_wires = []
-    for i in range(len(registers)):
-        reg_i_wires.append("new_w" + str(i))
+    regline = []
+    for j, regs in enumerate(registers):
+        regline.clear()
+        for i in range(len(regs)):
+            regline.append("new_w" + str(j) + str(i))
+        reg_i_wires.append(regline.copy())
 
     wire_str = gen_wires(wires, reg_i_wires)
 
@@ -195,12 +266,16 @@ def generate_forward(inputs, outputs, wires, assigns, m_name, stage):
 
     # make new assigns for the new wires and inputs
     new_assign_str = ""
-    for i in range(len(reg_i_wires)):
-        new_assign_str = new_assign_str + "\tassign " + reg_i_wires[i] + " = " + inputs[i] + ";\n"
+    for j, regs in enumerate(reg_i_wires):
+        for i in range(len(regs)):
+            new_assign_str = new_assign_str + "\tassign " + regs[i] + " = " + inputs[j][i] + ";\n"
+    # for i in range(len(reg_i_wires)):
+    #     new_assign_str = new_assign_str + "\tassign " + reg_i_wires[i] + " = " + inputs[0][i] + ";\n"
     
 
-    for i, reg in enumerate(registers):
-        always_str = always_str + "\t\t" + reg + " <= " + reg_i_wires[i] + ";\n"
+    for i, regs in enumerate(registers):
+        for j, reg in enumerate(regs):
+            always_str = always_str + "\t\t" + reg + " <= " + reg_i_wires[i][j] + ";\n"
     always_str = always_str + "\tend\nendmodule\n"
 
 
@@ -211,9 +286,20 @@ def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
     inp_str = gen_inputs(inputs)
     out_str = gen_outputs(outputs)
 
-    registers = outputs[:stage]
-    for i in range(len(registers)):
-        registers[i].replace("\\", "__")
+    registers = []
+    regline = []
+    counter = 0
+    for line in outputs:
+        regline.clear()
+        if counter == stage:
+            break
+        for out in line:
+            if counter == stage:
+                break
+            counter = counter + 1
+            regline.append(out)
+        registers.append(regline.copy())
+
     reg_str = gen_reg(registers)
 
     # create always block string
@@ -222,12 +308,16 @@ def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
 
     # assign these to inputs, and assign registers to these wires
     reg_i_wires = []
-    for i in range(len(registers)):
-        reg_i_wires.append("new_w" + str(i))
+    regline = []
+    for j, regs in enumerate(registers):
+        regline.clear()
+        for i in range(len(regs)):
+            regline.append("new_w" + str(j) + str(i))
+        reg_i_wires.append(regline.copy())
 
     wire_str = gen_wires(wires, reg_i_wires)
 
-    gen_assigns(registers, wires, assigns, reg_i_wires, stage)
+    gen_assigns(outputs, wires, assigns, reg_i_wires, stage)
 
     assign_str = "".join(assigns)
 
@@ -237,8 +327,9 @@ def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
     #     new_assign_str = new_assign_str + "\tassign " + reg_i_wires[i] + " = " + inputs[i] + ";\n"
     
 
-    for i, reg in enumerate(registers):
-        always_str = always_str + "\t\t" + reg + " <= " + reg_i_wires[i] + ";\n"
+    for i, regs in enumerate(registers):
+        for j, reg in enumerate(regs):
+            always_str = always_str + "\t\t" + reg + " <= " + reg_i_wires[i][j] + ";\n"
     always_str = always_str + "\tend\nendmodule\n"
 
 
@@ -246,8 +337,8 @@ def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
 
 args = sys.argv
 # set defaults
-vfile = 'c17.v'
-stage = 4
+vfile = 'c880.v'
+stage = 15
 direction = 'f'
 
 for a in range(len(args)):
@@ -265,6 +356,7 @@ for a in range(len(args)):
 path = str(load_file(vfile))
 
 inputs, outputs, wires, assigns, m_name = parse_verlg(path)
+
 
 if direction == 'f':
     seq_v = generate_forward(inputs, outputs, wires, assigns, m_name, stage)
