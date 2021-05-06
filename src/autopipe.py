@@ -12,27 +12,19 @@ def load_path(rel_path):
     """
     Gets the exact file path relative to this script executable location
     Used with a scripting environment (e.g. google colab or jupyter notebooks)
-
-    Parameters
-    ----------
-    rel_path : str
-        The path to the file
-
-    Returns
-    -------
-    str
-        A string containing the exact file path needed
     """
     current_folder = globals()['_dh'][0]
     p = os.path.join(current_folder, rel_path)
     return p
 
 def load_file(f_name):
+    """Loads file path from current directory"""
     p = Path(__file__).with_name(f_name)
     return p
 
 
 def after_key(line, lst, rm_first=1):
+    """Collects names following a key word and stores in the given list"""
     sub_str = line.split()
     int_names = []
     for i, s in enumerate(sub_str):
@@ -44,12 +36,16 @@ def after_key(line, lst, rm_first=1):
         lst.append(sub_str)
     
 def assign_key(line, res, op1, op2, gate):
+    """This function is called for any assign statement to specifically collect
+    the operators, result and gate used
+    """
     sub_str = line.split()[1:] # remove 'assign'
     res_  = sub_str[0]
     op1_ = sub_str[2]
     gate.append(sub_str[3])
     op2_ = sub_str[4]
 
+    # Operators or result wire/output could be an integer
     if op1_.startswith("~"):
         if op1_[1:].isdigit():
             op1_ = op1_[0] + "_" + op1_[1:]
@@ -70,10 +66,15 @@ def assign_key(line, res, op1, op2, gate):
     op2.append(op2_)
         
 def init_assigns(assigns, res, op1, op2, gate):
+    """Initialize assign statements at the end of the parse verilog function
+    """
     for i in range(len(res)):
         assigns.append("assign " + res[i] + " = " + op1[i] + " " + gate[i] + " " + op2[i])
 
 def parse_verlg(path):
+    """Parses the combination verilog file by organizing the contents into lists of:
+    inputs, outputs, wires, and assign lines of code. Supports multiline port and wire
+    initializations."""
     with open(path) as f:
         content = f.read().splitlines()
 
@@ -110,13 +111,12 @@ def parse_verlg(path):
 
         elif line.startswith("assign"):
             assign_key(line, res, op1, op2, gate)
-            # assigns.append(line)    # maybe split
-            curr = ""               # assign new_n8_ = a0 & b0
+            curr = ""               
 
         elif line.startswith("endmodule"):
             curr = ""
             break
-        else:
+        else: # multi-line variable initializations
             if curr == "input":
                 if i != len(content) and content[i+1].startswith(key_names):
                     curr = ""
@@ -136,7 +136,8 @@ def parse_verlg(path):
     return inputs, outputs, wires, assigns, m_name
 
 def gen_module(inputs, outputs, m_name):
-    
+    """Generates the module declaration string"""
+
     mod = "module " + m_name + " ( clock,\n\t  "
 
     for line in inputs:
@@ -153,6 +154,7 @@ def gen_module(inputs, outputs, m_name):
     return mod
 
 def gen_inputs(inputs):
+    """Generates the input strings"""
     in_str = "\tinput clock; \n\tinput "
     for line in inputs:
         for inp in line:
@@ -162,6 +164,7 @@ def gen_inputs(inputs):
     return in_str[:-4] + ";\n"
 
 def gen_outputs(outputs):
+    """Generates the output strings"""
     out_str = "\toutput "
     for line in outputs:
         for out in line:
@@ -171,6 +174,7 @@ def gen_outputs(outputs):
     return out_str[:-4] + ";\n"
 
 def gen_reg(registers):
+    """Generates the register strings"""
     reg_str = "\treg "
     for line in registers:
         for reg in line:
@@ -180,6 +184,7 @@ def gen_reg(registers):
     return reg_str[:-4] + ";\n"
 
 def gen_wires(wires, new_wires):
+    """Generates the wire strings"""
     wire1 = "\twire "
     for line in wires:
         for wire in line:
@@ -198,11 +203,9 @@ def gen_wires(wires, new_wires):
     return wire1 + wire2
 
 def gen_assigns(portnd, wires, assigns, regs, stage):
+    """Generates the assign statement strings"""
     ret = "\t "
     for j in range(len(assigns)):
-        # assign new_n8_ = a0 & b0;
-        # assign new_n13_ = ~new_n11_ & ~new_n12_;
-        # 
         counter = 0
         for k, ports in enumerate(portnd):
             for i in range(len(ports)):
@@ -225,10 +228,12 @@ def gen_assigns(portnd, wires, assigns, regs, stage):
 
 
 def generate_forward(inputs, outputs, wires, assigns, m_name, stage):
+    """Generates the entire sequential input verilog file as a string"""
     mod_str = gen_module(inputs, outputs, m_name)
     inp_str = gen_inputs(inputs)
     out_str = gen_outputs(outputs)
 
+    # make register list based on number of stages
     registers = []
     regline = []
     counter = 0
@@ -245,8 +250,6 @@ def generate_forward(inputs, outputs, wires, assigns, m_name, stage):
 
     reg_str = gen_reg(registers)
 
-    # create always block string
-    always_str = "\talways @ (posedge clock) begin\n"
     
 
     # assign these to inputs, and assign registers to these wires
@@ -269,10 +272,10 @@ def generate_forward(inputs, outputs, wires, assigns, m_name, stage):
     for j, regs in enumerate(reg_i_wires):
         for i in range(len(regs)):
             new_assign_str = new_assign_str + "\tassign " + regs[i] + " = " + inputs[j][i] + ";\n"
-    # for i in range(len(reg_i_wires)):
-    #     new_assign_str = new_assign_str + "\tassign " + reg_i_wires[i] + " = " + inputs[0][i] + ";\n"
     
 
+    # create always block string
+    always_str = "\talways @ (posedge clock) begin\n"
     for i, regs in enumerate(registers):
         for j, reg in enumerate(regs):
             always_str = always_str + "\t\t" + reg + " <= " + reg_i_wires[i][j] + ";\n"
@@ -282,10 +285,12 @@ def generate_forward(inputs, outputs, wires, assigns, m_name, stage):
     return mod_str + inp_str + out_str + reg_str + wire_str + assign_str + new_assign_str + always_str
 
 def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
+    """Generates the entire sequential output verilog file as a string"""
     mod_str = gen_module(inputs, outputs, m_name)
     inp_str = gen_inputs(inputs)
     out_str = gen_outputs(outputs)
 
+    # Create register list based on number of stages
     registers = []
     regline = []
     counter = 0
@@ -302,8 +307,6 @@ def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
 
     reg_str = gen_reg(registers)
 
-    # create always block string
-    always_str = "\talways @ (posedge clock) begin\n"
     
 
     # assign these to inputs, and assign registers to these wires
@@ -321,12 +324,8 @@ def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
 
     assign_str = "".join(assigns)
 
-    # make new assigns for the new wires and inputs
-    # new_assign_str = ""
-    # for i in range(len(reg_i_wires)):
-    #     new_assign_str = new_assign_str + "\tassign " + reg_i_wires[i] + " = " + inputs[i] + ";\n"
-    
-
+    # create always block string
+    always_str = "\talways @ (posedge clock) begin\n"
     for i, regs in enumerate(registers):
         for j, reg in enumerate(regs):
             always_str = always_str + "\t\t" + reg + " <= " + reg_i_wires[i][j] + ";\n"
@@ -337,8 +336,8 @@ def generate_backward(inputs, outputs, wires, assigns, m_name, stage):
 
 args = sys.argv
 # set defaults
-vfile = 'c880.v'
-stage = 15
+vfile = 'adder2-comb.v'
+stage = 4
 direction = 'f'
 
 for a in range(len(args)):
